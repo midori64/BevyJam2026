@@ -1,31 +1,19 @@
-#![feature(iter_array_chunks)]
+// #![feature(iter_array_chunks)]
 
 mod drag;
 mod fluids;
 
 use bevy::asset::AssetMetaCheck;
-use bevy::camera_controller::free_camera::{FreeCamera, FreeCameraPlugin};
-use bevy::ecs::system::FilteredResourcesParamBuilder;
-use bevy::gltf::{GltfMesh, GltfMeshName};
-use bevy::math::VectorSpace;
+use bevy::camera_controller::free_camera::{FreeCameraPlugin};
 use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_obj::ObjPlugin;
 
-use bevy_rapier2d::geometry::ColliderMassProperties::Density;
 use bevy_rapier2d::prelude::*;
-use itertools::Itertools;
-use salva2d::integrations::rapier::FluidsPipeline;
-use salva2d::object::Fluid;
-use salva2d::object::interaction_groups::InteractionGroups;
 
-use crate::drag::{Draggable, handle, on_drag_start};
-use crate::fluids::{
-    Fluids, PARTICLE_RADIUS, on_collider_add, on_collider_remove, register_colliders,
-};
+use crate::drag::{Draggable, on_drag_start};
 
-const PIXEL_SIZE: f32 = 20.0;
 fn main() {
     App::new()
         .add_plugins((
@@ -37,10 +25,13 @@ fn main() {
             RapierPhysicsPlugin::<()>::default().with_custom_initialization(
                 RapierContextInitialization::InitializeDefaultRapierContext {
                     rapier_configuration: RapierConfiguration {
-                        gravity: Vec2::new(0.0, -100.0),
+                        gravity: Vec2::new(0.0, -200.0),
                         ..RapierConfiguration::new(1.0)
                     },
-                    integration_parameters: IntegrationParameters::default(),
+                    integration_parameters: IntegrationParameters {
+                        // num_solver_iterations: 128,
+                        ..Default::default()
+                    },
                     broad_phase_optimization_strategy:
                         BroadPhaseOptimizationStrategy::SubtreeOptimizer,
                 },
@@ -51,15 +42,12 @@ fn main() {
             MeshPickingPlugin,
         ))
         .init_resource::<AssetHandles>()
-        .init_resource::<Fluids>()
-        .add_systems(Update, (try_setup, adapt_to_window, fluids::draw))
+        .add_systems(Update, (try_setup, adapt_to_window))
         .add_systems(
             FixedUpdate,
-            (drag::handle, fluids::step, register_colliders),
+            drag::handle
         )
         .add_observer(on_drag_start)
-        .add_observer(on_collider_add)
-        .add_observer(on_collider_remove)
         .run();
 }
 
@@ -85,7 +73,6 @@ fn try_setup(
     handles: Res<AssetHandles>,
     meshes: Res<Assets<Mesh>>,
     mut been_ran: Local<bool>,
-    mut fluids: ResMut<Fluids>,
 ) {
     if *been_ran {
         return;
@@ -108,18 +95,8 @@ fn try_setup(
         Draggable,
         ColliderMassProperties::Density(1.0),
         collider_from_mesh(outline).unwrap(),
-        Ccd::enabled(),
+        // Ccd::enabled(),
         Velocity::zero(),
-    ));
-
-    fluids.liquid_world.add_fluid(Fluid::new(
-        (0..5)
-            .cartesian_product(0..100)
-            .map(|(x, y)| salva2d::math::Vector::new(x as f32 * PIXEL_SIZE, y as f32 * PIXEL_SIZE))
-            .collect(),
-        PARTICLE_RADIUS,
-        1.0 / PIXEL_SIZE,
-        InteractionGroups::default(),
     ));
 
     commands.spawn((
@@ -143,7 +120,7 @@ fn adapt_to_window(
 
 fn collider_from_mesh(mesh: &Mesh) -> Option<Collider> {
     let indices = match mesh.indices()? {
-        bevy::mesh::Indices::U32(items) => items.iter().copied().array_chunks::<3>().collect(),
+        bevy::mesh::Indices::U32(items) => items.chunks_exact(3).map(|chunk| { chunk.try_into().unwrap() }).collect(),
         _ => unimplemented!(),
     };
     let vertices = mesh
