@@ -1,7 +1,4 @@
-// #![feature(iter_array_chunks)]
-
 mod drag;
-mod fluids;
 
 use bevy::asset::AssetMetaCheck;
 use bevy::camera_controller::free_camera::{FreeCameraPlugin};
@@ -10,7 +7,8 @@ use bevy_inspector_egui::bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_obj::ObjPlugin;
 
-use bevy_rapier2d::prelude::*;
+// use bevy_rapier2d::prelude::*;
+use avian2d::prelude::*;
 
 use crate::drag::{Draggable, on_drag_start};
 
@@ -22,26 +20,14 @@ fn main() {
                 ..default()
             }),
             FreeCameraPlugin,
-            RapierPhysicsPlugin::<()>::default().with_custom_initialization(
-                RapierContextInitialization::InitializeDefaultRapierContext {
-                    rapier_configuration: RapierConfiguration {
-                        gravity: Vec2::new(0.0, -200.0),
-                        ..RapierConfiguration::new(1.0)
-                    },
-                    integration_parameters: IntegrationParameters {
-                        // num_solver_iterations: 128,
-                        ..Default::default()
-                    },
-                    broad_phase_optimization_strategy:
-                        BroadPhaseOptimizationStrategy::SubtreeOptimizer,
-                },
-            ),
+            PhysicsPlugins::default(),
             EguiPlugin::default(),
             WorldInspectorPlugin::new(),
             ObjPlugin,
             MeshPickingPlugin,
         ))
         .init_resource::<AssetHandles>()
+        .insert_resource(Gravity(Vec2::NEG_Y * 1000.0))
         .add_systems(Update, (try_setup, adapt_to_window))
         .add_systems(
             FixedUpdate,
@@ -93,19 +79,14 @@ fn try_setup(
         RigidBody::Dynamic,
         Vial,
         Draggable,
-        ColliderMassProperties::Density(1.0),
-        collider_from_mesh(outline).unwrap(),
-        // Ccd::enabled(),
-        Velocity::zero(),
+        collider_from_mesh(outline).unwrap()
     ));
 
     commands.spawn((
         Sprite::from_color(Color::WHITE, vec2(1.0, 1.0)),
-        ColliderMassProperties::Density(10.0),
-        Collider::cuboid(0.5, 0.5),
-        RigidBody::Fixed,
+        Collider::rectangle(0.5, 0.5),
+        RigidBody::Static,
         Table,
-        Ccd::enabled(),
     ));
 }
 
@@ -129,7 +110,7 @@ fn collider_from_mesh(mesh: &Mesh) -> Option<Collider> {
         .into_iter()
         .map(|array| Vec3::from_array(*array).truncate())
         .collect();
-    Collider::trimesh(vertices, indices).ok()
+    Some(Collider::trimesh(vertices, indices))
 }
 
 #[derive(Component)]

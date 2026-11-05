@@ -16,12 +16,11 @@ opt-level = 1
 opt-level = 3
 
 [dependencies]
+avian2d = "0.8.0"
 bevy = { version = "0.20", features = ["2d", "free_camera", "debug"] }
 bevy-inspector-egui = { version = "0.38.0", features = ["2d"] }
 bevy_obj = "0.20.0"
-bevy_rapier2d = { version = "0.37.0", features = ["simd8", "parallel"] }
 itertools = "0.15.0"
-salva2d = { version = "0.11.0", features = ["rapier"] }
 
 # These lints may be important signals about code quality, but normal Bevy code
 # commonly triggers them and the CI workflow treats them as errors, so we've
