@@ -6,7 +6,8 @@ use salva2d::{
     rapier::prelude::ColliderHandle,
 };
 
-use crate::PIXEL_SIZE;
+// use crate::PIXEL_SIZE;
+const PIXEL_SIZE: f32 = 20.0;
 
 #[derive(Resource, Deref, DerefMut)]
 pub struct Fluids(pub FluidsPipeline);
